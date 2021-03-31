@@ -1,12 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using NATSnet;
-using NATSnet.Client;
-using NATSnet.Client.Disconnecting;
-using NATSnet.Client.Options;
-using NATSnet.Extensions.ManagedClient;
-using NATSnet.Protocol;
+using NATS.Client;
 using PipServices3.Commons.Config;
 using PipServices3.Commons.Errors;
 using PipServices3.Commons.Refer;
@@ -33,10 +28,10 @@ namespace PipServices3.Nats.Connect
     ///      -username:                    user name
     ///      - password:                    user password
     ///    - options:
-    ///      -retry_connect:        (optional)turns on / off automated reconnect when connection is log(default: true)
-    ///      - connect_timeout:      (optional)number of milliseconds to wait for connection(default: 30000)
+    ///      - retry_connect:        (optional)turns on / off automated reconnect when connection is log(default: true)
+    ///      - max_reconnect:        (optional) maximum reconnection attempts (default: 3)
     ///      - reconnect_timeout:    (optional)number of milliseconds to wait on each reconnection attempt(default: 1000)
-    ///      - keepalive_timeout:    (optional)number of milliseconds to ping broker while inactive(default: 3000)
+    ///      - flush_timeout:        (optional) number of milliseconds to wait on flushing messages (default: 3000)
     ///  
     ///  ### References ###
     ///   - \*:logger:\*:\*:1.0(optional) ILogger components to pass log messages
@@ -47,17 +42,17 @@ namespace PipServices3.Nats.Connect
     {
         private static ConfigParams _defaultConfig = ConfigParams.FromTuples(
             "options.retry_connect", true,
-            "options.connect_timeout", 30000,
-            "options.reconnect_timeout", 1000,
-            "options.keepalive_timeout", 60000
+            "options.connect_timeout", 0,
+            "options.reconnect_timeout", 3000,
+            "options.max_reconnect", 3,
+            "options.flush_timeout", 3000
         );
         protected CompositeLogger _logger = new CompositeLogger();
         protected NatsConnectionResolver _connectionResolver = new NatsConnectionResolver();
         protected ConfigParams _options = new ConfigParams();
 
         // NATS connection object
-        private INatsClientOptions _clientOptions;
-        protected INatsClient _connection;
+        protected IConnection _connection;
 
         // Topic subscriptions
         protected List<NatsSubscription> _subscriptions = new List<NatsSubscription>();
@@ -66,9 +61,9 @@ namespace PipServices3.Nats.Connect
         // Connection options
         private string _clientId;
         private bool _retryConnect = true;
-        private int _connectTimeout = 30000;
-        private int _reconnectTimeout = 60000;
-        private int _keepAliveTimeout = 1000;
+        private int _maxReconnect = 3;
+        private int _reconnectTimeout = 3000;
+        private int _flushTimeout = 3000;
 
         public NatsConnection()
         {
@@ -88,9 +83,9 @@ namespace PipServices3.Nats.Connect
 
             _clientId = config.GetAsStringWithDefault("client_id", _clientId);
             _retryConnect = config.GetAsBooleanWithDefault("options.retry_connect", _retryConnect);
-            _connectTimeout = config.GetAsIntegerWithDefault("options.connect_timeout", _connectTimeout);
+            _maxReconnect = config.GetAsIntegerWithDefault("options.max_reconnect", _maxReconnect);
             _reconnectTimeout = config.GetAsIntegerWithDefault("options.reconnect_timeout", _reconnectTimeout);
-            _keepAliveTimeout = config.GetAsIntegerWithDefault("options.keepalive_timeout", _keepAliveTimeout);
+            _flushTimeout = config.GetAsIntegerWithDefault("options.flush_timeout", _flushTimeout);
         }
 
         /// <summary>
@@ -120,61 +115,38 @@ namespace PipServices3.Nats.Connect
         {
             var options = await _connectionResolver.ResolveAsync(correlationId);
 
-            var opts = new NatsClientOptionsBuilder()
-                .WithClientId(_clientId);
+            var opts = ConnectionFactory.GetDefaultOptions();
+            opts.AllowReconnect = _retryConnect;
+            opts.MaxReconnect = _maxReconnect;
+            opts.ReconnectWait = _reconnectTimeout;
 
-            if (_keepAliveTimeout > 0)
-            {
-                opts.WithKeepAlivePeriod(TimeSpan.FromMilliseconds(_keepAliveTimeout));
-            }
-            else
-            {
-                opts.WithNoKeepAlive();
-            }
-
-            var uri = options.GetAsString("servers") ?? "";
-            var servers = uri.Split(',');
-            foreach (var server in servers) {
-                var host = server;
-                var port = 4222;
-
-                var pos = server.IndexOf(":");
-                if (pos > 0)
-                {
-                    host = server.Substring(0, pos);
-                    Int32.TryParse(server.Substring(pos + 1), out port);
-                }
-
-                opts.WithTcpServer(host, port);
-            }
+            var uri = options.GetAsString("uri");
+            opts.Servers = uri.Split(',');
 
             var username = options.GetAsString("username");
             if (!string.IsNullOrEmpty(username))
             {
+                opts.User = username;
                 var password = options.GetAsString("password");
-                opts.WithCredentials(username, password);
+                opts.Password = password;
             }
 
-            //opts.SetAutoReconnect(c.retryConnect)
-            //opts.SetConnectTimeout(time.Millisecond * time.Duration(c.connectTimeout))
-            //opts.SetConnectRetryInterval(time.Millisecond * time.Duration(c.reconnectTimeout))
-
-            var client = new NatsFactory().CreateNatsClient();
-            client.UseDisconnectedHandler(DisconnectedHandlerAsync);
-            client.UseApplicationMessageReceivedHandler(MessageReceiveHandlerAsync);
+            var token = options.GetAsString("token");
+            if (!string.IsNullOrEmpty(token))
+            {
+                opts.Token = token;
+            }
 
             try
             {
-                await client.ConnectAsync(opts.Build());
+                var connection = new ConnectionFactory().CreateConnection(opts);
+                _connection = connection;
             }
             catch (Exception ex)
             {
                 _logger.Error(correlationId, ex, "Failed to connect to NATS broker at " + uri);
                 throw ex;
             }
-
-            _connection = client;
-            _clientOptions = opts.Build();
 
             _logger.Debug(correlationId, "Connected to NATS broker at " + uri);
         }
@@ -192,7 +164,7 @@ namespace PipServices3.Nats.Connect
 
             try
             {
-                await _connection.DisconnectAsync();
+                _connection.Close();
             }
             finally
             {
@@ -201,55 +173,11 @@ namespace PipServices3.Nats.Connect
 
                 _logger.Debug(correlationId, "Disconnected from NATS broker");
             }
-        }
-
-        private async Task DisconnectedHandlerAsync(NatsClientDisconnectedEventArgs e)
-        {
-            //_logger.Debug(null, "Connection failed");
-
-            await Task.Delay(TimeSpan.FromMilliseconds(_reconnectTimeout));
-
-            try
-            {
-                if (_connection != null)
-                {
-                    await _connection.ConnectAsync(_clientOptions);
-                }
-            }
-            catch
-            {
-                // Skip...
-            }
-        }
-
-        private async Task MessageReceiveHandlerAsync(NatsApplicationMessageReceivedEventArgs e)
-        {
-            var message = e.ApplicationMessage;
-            var topic = message.Topic;
-
-            // Get subscriptions
-            IEnumerable<NatsSubscription> subscriptions;
-            lock (_lock)
-            {
-                subscriptions = _subscriptions.ToArray();
-            }
-
-            // Forward messages
-            foreach (var subscription in subscriptions)
-            {
-                // Todo: Implement proper filtering by wildcards?
-                if (subscription.Filter && topic != subscription.Topic)
-                {
-                    continue;
-                }
-
-                subscription.Listener.OnMessage(message);
-            }
 
             await Task.Delay(0);
         }
 
-        public INatsClient GetConnection()
+        public IConnection GetConnection()
         {
             return _connection;
         }
@@ -295,45 +223,45 @@ namespace PipServices3.Nats.Connect
             );
         }
 
-        public async Task PublishAsync(string topic, NatsApplicationMessage message)
+        public async Task PublishAsync(string subject, Msg message)
         {
             CheckOpen();
 
-            message.Topic = topic;
+            message.Subject = subject;
+            _connection.Publish(message);
 
-            await _connection.PublishAsync(message);
+            await Task.Delay(0);
         }
 
-        public async Task SubscribeAsync(string topic, NatsQualityOfServiceLevel qos, INatsMessageListener listener)
+        public async Task SubscribeAsync(string subject, string queue, INatsMessageListener listener)
         {
             CheckOpen();
 
             // Subscribe to the topic
             // Todo: Shall we skip if similar subscription already exist?
-            await _connection.SubscribeAsync(topic, qos);
+            var handler = _connection.SubscribeAsync(subject, queue, listener.OnMessage);
 
             lock (_lock)
             {
-                var filter = topic.IndexOf("*") < 0;
-
                 // Add subscription to the list
                 var subscription = new NatsSubscription
                 {
-                    Topic = topic,
+                    Subject = subject,
                     Listener = listener,
-                    Filter = filter,
-                    Qos = qos
+                    Queue = queue,
+                    Handler = handler
                 };
                 _subscriptions.Add(subscription);
             }
+
+            await Task.Delay(0);
         }
 
-        public async Task UnsubscribeAsync(string topic, INatsMessageListener listener)
+        public async Task UnsubscribeAsync(string subject, string queue, INatsMessageListener listener)
         {
             CheckOpen();
 
             NatsSubscription deletedSubscription = null;
-            var hasMoreSubscriptions = false;
 
             lock (_lock)
             {
@@ -341,29 +269,22 @@ namespace PipServices3.Nats.Connect
                 for (var index = 0; index < _subscriptions.Count; index++)
                 {
                     var subscription = _subscriptions[index];
-                    if (subscription.Topic == topic && subscription.Listener == listener)
+                    if (subscription.Subject == subject && subscription.Queue == queue && subscription.Listener == listener)
                     {
                         deletedSubscription = subscription;
                         _subscriptions.RemoveAt(index);
                         break;
                     }
                 }
-
-                // Find subscriptions to the same topic
-                foreach (var subscription in _subscriptions)
-                {
-                    if (subscription.Topic == topic)
-                    {
-                        hasMoreSubscriptions = true;
-                    }
-                }
             }
 
             // Unsubscribe if there are no more subscriptions
-            if (!hasMoreSubscriptions)
+            if (deletedSubscription != null)
             {
-                await _connection.UnsubscribeAsync(topic);
+                deletedSubscription.Handler.Unsubscribe();
             }
+
+            await Task.Delay(0);
         }
     }
 }

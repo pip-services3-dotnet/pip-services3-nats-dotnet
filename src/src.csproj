@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <RootNamespace>PipServices3.Nats</RootNamespace>
+    <AssemblyName>PipServices3.Nats</AssemblyName>
+    <ApplicationIcon />
+    <Win32Resource />
+    <Version>3.0.0</Version>
+    <Authors>Sergey Seroukhov</Authors>
+    <Copyright>Conceptual Vision Consulting LLC. 2017-2020</Copyright>
+    <Description>NATS messaging for Pip.Services in .NET</Description>
+    <Company>Conceptual Vision Consulting LLC.</Company>
+    <Product>PipServices3.Nats</Product>
+    <PackageLicenseUrl>http://opensource.org/licenses/MIT</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/pip-services3-dotnet/pip-services3-nats-dotnet</PackageProjectUrl>
+    <PackageIconUrl>https://raw.githubusercontent.com/pip-services/pip-services/master/design/Icon.png</PackageIconUrl>
+    <PackageTags>PipServices V3 microservices toolkit</PackageTags>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PipServices3.Commons" Version="3.1.2" />
+    <PackageReference Include="PipServices3.Components" Version="3.1.4" />
+    <PackageReference Include="PipServices3.Messaging" Version="3.2.2" />
+    <PackageReference Include="NATS.Client" Version="0.12.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Connect\" />
+  </ItemGroup>
+</Project>

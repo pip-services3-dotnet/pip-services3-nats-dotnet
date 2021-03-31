@@ -1,0 +1,20 @@
+version: '3.3'
+
+services:
+  test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.test
+    image: ${IMAGE:-pipdevs/test}
+    depends_on:
+      - nats
+    environment:
+      - NATS_SERVICE_PORT=4222
+      - NATS_SERVICE_HOST=nats
+      - NATS_QUEUE=test
+
+  nats:
+    container_name: nats
+    image: nats:latest
+    # ports:
+    #   - "4222:4222"
