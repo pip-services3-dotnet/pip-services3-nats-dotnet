@@ -49,7 +49,7 @@ namespace PipServices3.Nats.Connect
                 return;
             }
 
-            var protocol = connection.GetProtocol("nats");
+            var protocol = connection.GetProtocolWithDefault("nats");
             if (string.IsNullOrEmpty(protocol))
             {
                 throw new ConfigException(correlationId, "NO_PROTOCOL", "Connection protocol is not set");
@@ -106,7 +106,7 @@ namespace PipServices3.Nats.Connect
                     uriBuilder.Append(",");
                 }
 
-                var protocol = connection.GetProtocol("nats");
+                var protocol = connection.GetProtocolWithDefault("nats");
                 uriBuilder.Append(protocol);
 
                 var host = connection.Host;
