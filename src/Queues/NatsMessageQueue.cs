@@ -247,8 +247,6 @@ namespace PipServices3.Nats.Queues
 
         private Msg FromMessage(MessageEnvelope message)
         {
-            var data = message.Message;
-
             var headers = new MsgHeader();
             headers.Add("message_id", message.MessageId);
             headers.Add("correlation_id", message.CorrelationId);
@@ -257,7 +255,7 @@ namespace PipServices3.Nats.Queues
 
             var subject = !string.IsNullOrEmpty(Name) ? Name : _subject;
 
-            var msg = new Msg(subject, null, headers, data);
+            var msg = new Msg(subject, null, headers, message.MessageBuffer);
             return msg;
         }
 
