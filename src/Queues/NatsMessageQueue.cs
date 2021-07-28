@@ -247,15 +247,19 @@ namespace PipServices3.Nats.Queues
 
         private Msg FromMessage(MessageEnvelope message)
         {
-            var headers = new MsgHeader();
-            headers.Add("message_id", message.MessageId);
-            headers.Add("correlation_id", message.CorrelationId);
-            headers.Add("message_type", message.MessageType);
-            headers.Add("sent_time", StringConverter.ToNullableString(DateTime.UtcNow));
+            var data = message.Message;
+
+            var headers = new MsgHeader
+            {
+                {"message_id", message.MessageId},
+                {"correlation_id", message.CorrelationId},
+                {"message_type", message.MessageType},
+                {"sent_time", StringConverter.ToNullableString(DateTime.UtcNow)}
+            };
 
             var subject = !string.IsNullOrEmpty(Name) ? Name : _subject;
 
-            var msg = new Msg(subject, null, headers, message.MessageBuffer);
+            var msg = new Msg(subject, null, headers, data);
             return msg;
         }
 

@@ -6,7 +6,7 @@
     <AssemblyName>PipServices3.Nats</AssemblyName>
     <ApplicationIcon />
     <Win32Resource />
-    <Version>3.1.4</Version>
+    <Version>3.1.5</Version>
     <Authors>Sergey Seroukhov</Authors>
     <Copyright>Conceptual Vision Consulting LLC. 2017-2020</Copyright>
     <Description>NATS messaging for Pip.Services in .NET</Description>
@@ -22,7 +22,7 @@
   <ItemGroup>
     <PackageReference Include="PipServices3.Commons" Version="3.1.3" />
     <PackageReference Include="PipServices3.Components" Version="3.2.2" />
-    <PackageReference Include="PipServices3.Messaging" Version="3.3.3" />
+    <PackageReference Include="PipServices3.Messaging" Version="3.3.4" />
     <PackageReference Include="NATS.Client" Version="0.12.0" />
   </ItemGroup>
 
