@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net5.0</TargetFrameworks>
     <RootNamespace>PipServices3.Nats</RootNamespace>
     <AssemblyName>PipServices3.Nats</AssemblyName>
     <ApplicationIcon />
     <Win32Resource />
-    <Version>3.1.5</Version>
+    <Version>3.2.0</Version>
     <Authors>Sergey Seroukhov</Authors>
-    <Copyright>Conceptual Vision Consulting LLC. 2017-2020</Copyright>
+    <Copyright>Conceptual Vision Consulting LLC. 2017-2021</Copyright>
     <Description>NATS messaging for Pip.Services in .NET</Description>
     <Company>Conceptual Vision Consulting LLC.</Company>
     <Product>PipServices3.Nats</Product>
@@ -20,9 +20,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="PipServices3.Commons" Version="3.1.3" />
-    <PackageReference Include="PipServices3.Components" Version="3.2.2" />
-    <PackageReference Include="PipServices3.Messaging" Version="3.3.4" />
+    <PackageReference Include="PipServices3.Commons" Version="3.3.0" />
+    <PackageReference Include="PipServices3.Components" Version="3.3.0" />
+    <PackageReference Include="PipServices3.Messaging" Version="3.4.0" />
     <PackageReference Include="NATS.Client" Version="0.12.0" />
   </ItemGroup>
 
