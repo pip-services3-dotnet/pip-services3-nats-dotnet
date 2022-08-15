@@ -1,6 +1,14 @@
 {
     "name": "pip-services3-nats-dotnet",
-    "registry": "pipdevs",
+    "type": "module",
+    "language": "dotnet",
     "version": "3.3.0",
-    "build": 0
+    "build": 0,
+    "registry": "pipdevs",
+    "artifacts": [
+        {
+            "name":  "<name>",
+            "type": "nuget"
+        }
+    ]
 }
